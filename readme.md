@@ -119,4 +119,10 @@ Jarvis comes with a Next.js web application located under the `frontend/` direct
 ## ⚠️ License
 
 Licensed under **[Creative Commons BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)** (Personal & Non-Commercial Use Only).
+
+---
+
+## 👤 Creator
+
+Engineered with 💻 by **[Syed Roshan](https://github.com/syedroshan1526)**.
 ⭐ **Star this repository to follow the development journey!**
