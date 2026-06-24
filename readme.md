@@ -1,82 +1,122 @@
-# 🤖 MARK XXXIX-OR (39)
-### The Ultimate Cross-Platform Personal AI Assistant — By FatihMakes
+# 🎙️ Jarvis: Next-Gen AI Voice & Desktop Assistant
 
-> 📺 **[Watch the full setup video on YouTube](https://youtu.be/ldvDNzwnM8k)**
+Jarvis is a real-time, zero-latency voice and system automation assistant powered by **Gemini 2.5 Live API** and **OpenRouter**. Designed for developers and power users, Jarvis can hear your voice, see your screen, write/run code, control your operating system, and organize your files—all through natural conversation.
 
-A real-time voice AI that can hear, see, understand, and control your computer — on any OS. Supporting Windows, macOS, and Linux. Local execution. Zero subscriptions. Engineered for total autonomy.
-
----
-
-## ✨ Overview
-
-MARK XXXIX-OR represents the pinnacle of the Jarvis series, evolving into a more flexible and robust system. It bridges the gap between the operating system and human intent. Through natural dialogue, Mark 39 analyzes your screen, processes uploaded documents, and executes complex workflows with a brand-new, adaptive interface.
-
-It's not just an assistant — it's an extension of your digital life.
+It features a custom desktop overlay interface built with Python/PySide6, as well as a modern web dashboard built with Next.js.
 
 ---
 
-## 🚀 Capabilities
+## ✨ Features
 
-### Core Features
-| Feature | Description |
-|---|---|
-| 🎙️ Real-time Voice | Ultra-low latency conversation in any language |
-| 🖥️ System Control | Launch apps, manage files, execute terminal commands |
-| 🧩 Autonomous Tasks | High-level planning for complex, multi-step goals |
-| 👁️ Visual Awareness | Real-time screen processing and webcam vision |
-| 🧠 Persistent Memory | Deeply remembers your projects, preferences, and personal context |
-| ⌨️ Hybrid Input | Seamlessly switch between keyboard typing and voice commands |
+### 🎙️ Real-Time Voice Interaction
+- **Gemini Live Audio**: Low-latency, bidirectional audio streaming using `gemini-2.5-flash-native-audio-preview`.
+- **Seamless Typing & Speech**: Fluidly switch between voice input and text commands depending on your preference.
+
+### 🖥️ OS & Desktop Control
+- **System Actions**: Change volume, adjust brightness, toggle dark mode, reload tabs, capture screenshots, and manage open windows.
+- **App Launcher**: Open any desktop application or URL by name (e.g., Chrome, VSCode, Spotify).
+- **Files & Workspace**: List, create, rename, delete, or clean up your desktop and file directories automatically.
+- **Mouse & Keyboard Simulation**: Move the cursor, click specific coordinates, double-click, drag, or type on screen.
+
+### 👁️ Screen & Webcam Vision
+- **Display Capture**: Captures your display to analyze code, debug errors, read articles, or assist you with whatever you are doing on screen.
+- **Webcam Vision**: Utilizes your webcam to see and describe your surroundings.
+
+### 📁 Advanced File Processing
+- **Smart Handler**: Drop files directly into the assistant's UI to analyze them.
+- **Supported Formats**:
+  - **PDFs**: Extract text, summarize, or convert documents.
+  - **Images**: Describe content, perform OCR, compress, resize, or convert formats.
+  - **CSVs & Excel**: Sort, filter, calculate statistics, and summarize data.
+  - **Code Files**: Review, write, optimize, test, or run scripts.
+  - **Audio/Video**: Transcribe, trim, convert formats, or extract audio tracks.
+  - **Archives**: List contents and extract archives automatically.
+
+### 🧠 Persistent Long-Term Memory
+- Silently remembers personal facts, project goals, habits, and preferences in a structured database to make every conversation personalized and contextual.
+
+### 🌐 Web Dashboard & Tools
+- **Next.js Frontend**: A modern web interface for configuring features, tracking memory, and monitoring task queues.
+- **Specialized Integrations**: Built-in actions for YouTube controls, Google Flights finder, WhatsApp messaging, and Steam/Epic game installers.
 
 ---
 
-## 🆕 What's New in XXXIX-OR
+## 🚀 Quick Start
 
-- 📂 **Advanced File Handling** — New support for direct file uploads. Drop PDFs, source code, or images into the assistant to have them analyzed, summarized, or edited instantly.
-- 🎨 **Adaptive & Flexible UI** — A complete overhaul of the interface. The new UI is fully resizable and responsive, featuring transparency controls and customizable layouts to fit your workspace perfectly.
-- 🐧🍎 **Refined Cross-Platform Stability** — Major fixes for macOS and Linux compatibility. Core system actions are now more consistent across all three major operating systems.
-- ⚡ **Optimized Core Engine** — Significant performance boost in tool-calling logic and response generation, resulting in a 40% faster interaction speed.
-- 🔀 **OpenRouter Integration** — Selected action modules (web search, memory, flight finder, desktop control, and more) now route their LLM calls through OpenRouter's free-tier models. This significantly increases the effective request limit without any additional cost, while Gemini Live continues to handle real-time voice and tool-calling.
+### 📋 Prerequisites
+- **Python**: version `3.11` or `3.12`
+- **Node.js**: version `18+` (for the web frontend)
+- **APIs**: A Gemini API key and an OpenRouter API key
+
+### 🔧 1. Backend Installation & Setup
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/syedroshan1526/Ai-voice-assistant-.git
+   cd Ai-voice-assistant-
+   ```
+
+2. Install python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Initialize Playwright browser automation:
+   ```bash
+   playwright install
+   ```
+
+4. Create a configuration file at `config/api_keys.json`:
+   ```json
+   {
+       "gemini_api_key": "YOUR_GEMINI_API_KEY",
+       "openrouter_api_key": "YOUR_OPENROUTER_API_KEY"
+   }
+   ```
+
+5. Run the Python assistant:
+   ```bash
+   python main.py
+   ```
 
 ---
 
-## ⚡ Quick Start
+### 🌐 2. Web Frontend Setup (Optional)
+Jarvis comes with a Next.js web application located under the `frontend/` directory.
 
-```bash
-git clone https://github.com/FatihMakes/Mark-XXXIX-OR.git
-cd Mark-XXXIX-OR
-pip install -r requirements.txt
-playwright install
-python main.py
+1. Navigate to the frontend folder:
+   ```bash
+   cd frontend
+   ```
+
+2. Install npm packages:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+## 🛠️ Project Structure
+
 ```
-
-> ⚠️ **Installation Note:** To keep the repository lightweight, some OS-specific dependencies are not bundled in `requirements.txt`. If you run into a `ModuleNotFoundError`, simply install the missing package via `pip install <module_name>` for your specific system.
-
----
-
-## 📋 Requirements
-
-| Requirement | Details |
-|---|---|
-| **OS** | Windows 10/11, macOS, or Linux |
-| **Python** | 3.11 or 3.12 |
-| **Microphone** | Required for voice interaction |
-| **API Keys** | Free Gemini API key + Free OpenRouter API key |
+├── actions/             # System integration modules (browser, file, mouse control)
+├── agent/               # Autonomous execution planners and task queues
+├── config/              # Keys and configurations
+├── core/                # System instructions and prompt templates
+├── frontend/            # Next.js web application
+├── memory/              # Personal context and long-term memory system
+├── main.py              # Main execution script (Gemini Live WebSocket loop)
+├── ui.py                # Desktop overlay application layout
+└── requirements.txt     # Python package requirements
+```
 
 ---
 
 ## ⚠️ License
 
-Personal and non-commercial use only.
-Licensed under **[Creative Commons BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)**.
-
----
-
-## 👤 Connect with the Creator
-
-Engineered by a developer building a real-world JARVIS-style assistant.
-⭐ **Star the repository to support the journey to Mark 100.**
-
-| Platform | Link |
-|---|---|
-| YouTube | [@FatihMakes](https://www.youtube.com/@FatihMakes) |
-| Instagram | [@fatihmakes](https://www.instagram.com/fatihmakes) |
+Licensed under **[Creative Commons BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)** (Personal & Non-Commercial Use Only).
+⭐ **Star this repository to follow the development journey!**
