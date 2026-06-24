@@ -487,6 +487,47 @@ def restart_computer():
     else:
         subprocess.run(["systemctl", "reboot"], capture_output=True)
 
+def list_open_applications() -> str:
+    if _OS == "Windows":
+        try:
+            # Use PowerShell to get processes that have a main window title (active desktop apps)
+            cmd = 'powershell -Command "Get-Process | Where-Object {$_.MainWindowTitle} | Select-Object -ExpandProperty MainWindowTitle"'
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=5, shell=True)
+            if r.returncode == 0:
+                titles = [line.strip() for line in r.stdout.splitlines() if line.strip()]
+                # Filter out duplicate names and minor helper windows
+                unique_apps = []
+                for t in titles:
+                    if t not in unique_apps and t not in ("Default IME", "MSCTFIME UI", "Program Manager"):
+                        unique_apps.append(t)
+                if unique_apps:
+                    res = f"There are {len(unique_apps)} open applications:\n"
+                    for app in sorted(unique_apps):
+                        res += f"- {app}\n"
+                    return res
+        except Exception:
+            pass
+
+    try:
+        import pygetwindow as gw
+        titles = gw.getAllTitles()
+        visible_apps = []
+        for t in titles:
+            if t and t.strip():
+                title_clean = t.strip()
+                if title_clean not in ("Default IME", "MSCTFIME UI", "Program Manager", "Settings"):
+                    visible_apps.append(title_clean)
+        unique_apps = list(set(visible_apps))
+        if unique_apps:
+            res = f"There are {len(unique_apps)} open application windows:\n"
+            for app in sorted(unique_apps):
+                res += f"- {app}\n"
+            return res
+    except Exception as e:
+        return f"Error listing open application windows: {e}"
+
+    return "No active application windows detected."
+
 def shutdown_computer():
     if _OS == "Windows":
         subprocess.run(["shutdown", "/s", "/t", "10"], capture_output=True)
@@ -498,6 +539,9 @@ def shutdown_computer():
         subprocess.run(["systemctl", "poweroff"], capture_output=True)
 
 ACTION_MAP: dict[str, callable] = {
+    "list":                list_open_applications,
+    "list_apps":           list_open_applications,
+    "list_windows":        list_open_applications,
     "volume_up":           volume_up,
     "volume_down":         volume_down,
     "mute":                volume_mute,
@@ -600,13 +644,20 @@ def computer_settings(
     description = params.get("description", "").strip()
     value       = params.get("value", None)
 
-    if not raw_action and description:
-        detected   = _detect_action(description)
-        raw_action = detected.get("action", "")
-        if value is None:
-            value = detected.get("value")
-
     action = raw_action.lower().strip().replace(" ", "_").replace("-", "_")
+
+    # If action is not recognized (or is generic 'task') and description is provided,
+    # fall back to AI intent detection to classify the correct action from the description.
+    if (not action or action == "task" or (action not in ACTION_MAP and action not in (
+        "volume_set", "type_text", "write_on_screen", "type", "write", "press_key", 
+        "reload_n", "refresh_n", "reload_page_n", "scroll_up", "scroll_down"
+    ))) and description:
+        detected = _detect_action(description)
+        detected_action = detected.get("action", "").lower().strip().replace(" ", "_").replace("-", "_")
+        if detected_action and detected_action != "task":
+            action = detected_action
+            if value is None:
+                value = detected.get("value")
 
     if not action:
         return "No action could be determined."
@@ -665,7 +716,9 @@ def computer_settings(
         return f"Unknown action: '{raw_action}'."
 
     try:
-        func()
+        res = func()
+        if isinstance(res, str) and res:
+            return res
         return f"Done: {action}."
     except Exception as e:
         print(f"[Settings] Action failed ({action}): {e}")

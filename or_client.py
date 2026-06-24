@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Optional
 
 import requests
+from google import genai
+from google.genai import types
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("openrouter_client")
@@ -24,14 +26,17 @@ def _load_api_key() -> str:
     try:
         with open(API_KEY_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-        key = data.get("openrouter_api_key", "").strip()
-        if not key:
-            raise ValueError("openrouter_api_key is empty in api_keys.json")
-        return key
-    except FileNotFoundError:
-        raise RuntimeError(f"api_keys.json not found at: {API_KEY_PATH}")
-    except Exception as e:
-        raise RuntimeError(f"Failed to load OpenRouter API key: {e}")
+        return data.get("openrouter_api_key", "").strip()
+    except Exception:
+        return ""
+
+def _load_gemini_api_key() -> str:
+    try:
+        with open(API_KEY_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("gemini_api_key", "").strip()
+    except Exception:
+        return ""
 
 TEXT_MODELS: list[str] = [
     "nvidia/nemotron-3-super-120b-a12b:free",
@@ -82,13 +87,25 @@ _rate_limited: dict[str, float] = {}
 class OpenRouterClient:
 
     def __init__(self) -> None:
-        self.api_key  = _load_api_key()
-        self._headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type":  "application/json",
-            "HTTP-Referer":  "https://github.com/mark-xxv",
-            "X-Title":       "MARK XXV",
-        }
+        self.api_key = _load_api_key()
+        self.gemini_key = _load_gemini_api_key()
+        self.use_gemini = (
+            not self.api_key or
+            self.api_key.startswith("AQ.") or
+            self.api_key.startswith("AIzaSy") or
+            self.api_key == self.gemini_key or
+            not self.api_key.startswith("sk-or-")
+        )
+        if self.use_gemini:
+            logger.info("[OpenRouter Client] Invalid/missing OpenRouter API key. Routing background requests to Gemini API.")
+            self.gemini_client = genai.Client(api_key=self.gemini_key)
+        else:
+            self._headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type":  "application/json",
+                "HTTP-Referer":  "https://github.com/mark-xxv",
+                "X-Title":       "MARK XXV",
+            }
 
     def _is_rate_limited(self, model: str) -> bool:
         ts = _rate_limited.get(model)
@@ -206,6 +223,22 @@ class OpenRouterClient:
         max_tokens: int = DEFAULT_MAX_TOKENS,
         temperature: float = DEFAULT_TEMPERATURE,
     ) -> str:
+        if self.use_gemini:
+            try:
+                response = self.gemini_client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system,
+                        max_output_tokens=max_tokens,
+                        temperature=temperature,
+                    )
+                )
+                return response.text.strip() if response.text else ""
+            except Exception as e:
+                logger.error(f"[Gemini Fallback] Chat failed: {e}")
+                raise
+
         messages = [
             {"role": "system", "content": system},
             {"role": "user",   "content": prompt},
@@ -224,6 +257,30 @@ class OpenRouterClient:
         model: Optional[str] = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> dict:
+        if self.use_gemini:
+            try:
+                response = self.gemini_client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system,
+                        max_output_tokens=max_tokens,
+                        temperature=0.2,
+                        response_mime_type="application/json",
+                    )
+                )
+                txt = response.text.strip() if response.text else "{}"
+                if txt.startswith("```"):
+                    parts = txt.split("```")
+                    txt = parts[1] if len(parts) > 1 else txt
+                    if txt.startswith("json"):
+                        txt = txt[4:]
+                txt = txt.strip().rstrip("`").strip()
+                return json.loads(txt)
+            except Exception as e:
+                logger.error(f"[Gemini Fallback] Chat JSON failed: {e}")
+                raise
+
         messages = [
             {"role": "system", "content": system},
             {"role": "user",   "content": prompt},
@@ -261,6 +318,24 @@ class OpenRouterClient:
         model: Optional[str] = None,
         max_tokens: int = 1024,
     ) -> str:
+        if self.use_gemini:
+            try:
+                image_data = base64.b64decode(image_b64)
+                part = types.Part.from_bytes(data=image_data, mime_type=mime)
+                response = self.gemini_client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=[part, prompt],
+                    config=types.GenerateContentConfig(
+                        system_instruction=system,
+                        max_output_tokens=max_tokens,
+                        temperature=0.2,
+                    )
+                )
+                return response.text.strip() if response.text else ""
+            except Exception as e:
+                logger.error(f"[Gemini Fallback] Vision failed: {e}")
+                raise
+
         messages = [
             {"role": "system", "content": system},
             {
@@ -310,7 +385,37 @@ class OpenRouterClient:
         max_tokens: int = DEFAULT_MAX_TOKENS,
         temperature: float = DEFAULT_TEMPERATURE,
     ) -> str:
-    
+        if self.use_gemini:
+            try:
+                contents = []
+                system_instruction = None
+                for m in messages:
+                    role = m.get("role")
+                    content = m.get("content")
+                    if role == "system":
+                        system_instruction = content
+                    else:
+                        gemini_role = "model" if role == "assistant" else "user"
+                        contents.append(
+                            types.Content(
+                                role=gemini_role,
+                                parts=[types.Part.from_text(text=content)]
+                            )
+                        )
+                response = self.gemini_client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        max_output_tokens=max_tokens,
+                        temperature=temperature,
+                    )
+                )
+                return response.text.strip() if response.text else ""
+            except Exception as e:
+                logger.error(f"[Gemini Fallback] Multi-turn failed: {e}")
+                raise
+
         return self._call_with_fallback(
             TEXT_MODELS, messages, model, max_tokens, temperature
         )

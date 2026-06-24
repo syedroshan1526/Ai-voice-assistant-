@@ -138,6 +138,18 @@ def update_memory(memory_update: dict) -> dict:
 
 
 def should_extract_memory(user_text: str, jarvis_text: str, api_key: str = "") -> bool:
+    # Pre-filter to avoid unnecessary API requests and 429 rate limit errors
+    combined_text = (user_text + " " + jarvis_text).lower()
+    triggers = [
+        "name", "naam", "live", "rahata", "rahati", "work", "job", "kaam", "study", "school",
+        "born", "age", "year", "saal", "like", "love", "pasand", "pyaar", "hate", "prefer",
+        "favor", "want", "wish", "plan", "friend", "dost", "wife", "husband", "son", "daughter",
+        "brother", "bhai", "sister", "behan", "family", "project", "build", "habit", "goal",
+        "dream", "buy", "travel", "visit"
+    ]
+    if not any(word in combined_text for word in triggers):
+        return False
+
     try:
         from or_client import client
 

@@ -1,11 +1,20 @@
+from __future__ import annotations
 import asyncio
 import threading
 import concurrent.futures
 import platform
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 
 def _get_default_browser_id() -> str:
@@ -191,11 +200,25 @@ class _BrowserThread:
         Tarayıcıyı başlatır. Zaten açıksa hiçbir şey yapmaz.
         Her zaman default tarayıcıyı kullanır, özel sekme açmaz.
         """
-        if self._browser and self._browser.is_connected():
-            return
+        if not self._playwright:
+            print("[Browser] 🔌 Restarting Playwright...")
+            self._playwright = await async_playwright().start()
 
-        prog_id = _get_default_browser_id()
+        target = getattr(self, "target_browser_name", "").lower().strip()
+        if self._browser and self._browser.is_connected():
+            current_launched = getattr(self, "_current_launched_id", "")
+            if target and target != current_launched:
+                print(f"[Browser] 🔄 Switching browser from '{current_launched}' to '{target}'...")
+                await self._browser.close()
+                self._browser = None
+                self._context = None
+                self._page = None
+            else:
+                return
+
+        prog_id = target if target else _get_default_browser_id()
         self._engine_name, self._exe_path, self._channel, self._is_opera = _find_browser_executable(prog_id)
+        self._current_launched_id = prog_id
         engine = getattr(self._playwright, self._engine_name)
 
         # Temel chromium argümanları
@@ -451,6 +474,9 @@ def browser_control(
         clear_first : bool, clear input before typing (default: True)
     """
     _ensure_started()
+
+    browser_name = (parameters or {}).get("browser_name", "").lower().strip()
+    _bt.target_browser_name = browser_name
 
     action = (parameters or {}).get("action", "").lower().strip()
     result = "Unknown action."

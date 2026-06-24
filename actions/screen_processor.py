@@ -316,8 +316,11 @@ def screen_process(
     user_text = (parameters or {}).get("text") or (parameters or {}).get("user_text", "")
     user_text = (user_text or "").strip()
     if not user_text:
-        print("[ScreenProcess] ⚠️ No user_text provided.")
-        return False
+        if (parameters or {}).get("action") == "screen":
+            user_text = "Analyze screen"
+        else:
+            print("[ScreenProcess] ⚠️ No user_text provided.")
+            return False
 
     angle = (parameters or {}).get("angle", "screen").lower().strip()
     print(f"[ScreenProcess] angle={angle!r}  text={user_text!r}")

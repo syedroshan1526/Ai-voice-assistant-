@@ -5,6 +5,14 @@ import sys
 import traceback
 from pathlib import Path
 
+# Force UTF-8 encoding for standard streams on Windows to prevent UnicodeEncodeError with emojis
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import sounddevice as sd
 from google import genai
 from google.genai import types
@@ -189,9 +197,10 @@ TOOL_DECLARATIONS = [
             "type": "OBJECT",
             "properties": {
                 "angle": {"type": "STRING", "description": "'screen' to capture display, 'camera' for webcam. Default: 'screen'"},
-                "text":  {"type": "STRING", "description": "The question or instruction about the captured image"}
+                "text":  {"type": "STRING", "description": "The question or instruction about the captured image"},
+                "action": {"type": "STRING", "description": "Optional action. For vision capture, use 'screen'."}
             },
-            "required": ["text"]
+            "required": []
         }
     },
     {
@@ -230,6 +239,7 @@ TOOL_DECLARATIONS = [
                 "direction":   {"type": "STRING", "description": "up or down for scroll"},
                 "key":         {"type": "STRING", "description": "Key name for press action"},
                 "incognito":   {"type": "BOOLEAN", "description": "Open in private/incognito mode"},
+                "browser_name": {"type": "STRING", "description": "Specific browser brand to use: 'edge' | 'chrome' | 'brave'."},
             },
             "required": ["action"]
         }
@@ -317,25 +327,24 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "computer_control",
-        "description": "Direct computer control: type, click, hotkeys, scroll, move mouse, screenshots, find elements on screen.",
+        "description": (
+            "Direct voice-activated computer mouse and keyboard control. Use this tool "
+            "immediately AFTER 'screen_process' has provided pixel coordinates for an element, "
+            "or when the user provides absolute spatial commands (e.g., scroll up, click center)."
+        ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":      {"type": "STRING", "description": "type | smart_type | click | double_click | right_click | hotkey | press | scroll | move | copy | paste | screenshot | wait | clear_field | focus_window | screen_find | screen_click | random_data | user_data"},
-                "text":        {"type": "STRING", "description": "Text to type or paste"},
-                "x":           {"type": "INTEGER", "description": "X coordinate"},
-                "y":           {"type": "INTEGER", "description": "Y coordinate"},
-                "keys":        {"type": "STRING", "description": "Key combination e.g. 'ctrl+c'"},
-                "key":         {"type": "STRING", "description": "Single key e.g. 'enter'"},
-                "direction":   {"type": "STRING", "description": "up | down | left | right"},
-                "amount":      {"type": "INTEGER", "description": "Scroll amount (default: 3)"},
-                "seconds":     {"type": "NUMBER",  "description": "Seconds to wait"},
-                "title":       {"type": "STRING",  "description": "Window title for focus_window"},
-                "description": {"type": "STRING",  "description": "Element description for screen_find/screen_click"},
-                "type":        {"type": "STRING",  "description": "Data type for random_data"},
-                "field":       {"type": "STRING",  "description": "Field for user_data: name|email|city"},
-                "clear_first": {"type": "BOOLEAN", "description": "Clear field before typing (default: true)"},
-                "path":        {"type": "STRING",  "description": "Save path for screenshot"},
+                "action": {
+                    "type": "STRING", 
+                    "description": "click | double_click | right_click | move | scroll | drag | wait | focus_window"
+                },
+                "x": {"type": "INTEGER", "description": "Absolute X pixel coordinate on the display screen context."},
+                "y": {"type": "INTEGER", "description": "Absolute Y pixel coordinate on the display screen context."},
+                "direction": {"type": "STRING", "description": "up | down | left | right (used specifically for scroll actions)."},
+                "amount": {"type": "INTEGER", "description": "Scroll amount multiplier. Defaults to 3 if not specified."},
+                "seconds": {"type": "NUMBER", "description": "Wait duration in seconds for the wait action (e.g., 0.5)."},
+                "title": {"type": "STRING", "description": "Window title fragment for the focus_window action."}
             },
             "required": ["action"]
         }
@@ -487,6 +496,14 @@ TOOL_DECLARATIONS = [
                 "value": {"type": "STRING", "description": "Concise value in English (e.g. Fatih, pizza, older sister)"},
             },
             "required": ["category", "key", "value"]
+        }
+    },
+    {
+        "name": "list_open_apps",
+        "description": "Lists all open application windows currently running in the operating system.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
         }
     },
 ]
@@ -683,6 +700,10 @@ class JarvisLive:
             elif name == "flight_finder":
                 r = await loop.run_in_executor(None, lambda: flight_finder(parameters=args, player=self.ui))
                 result = r or "Done."
+            elif name == "list_open_apps":
+                from actions.computer_settings import list_open_applications
+                r = await loop.run_in_executor(None, list_open_applications)
+                result = r or "No open applications found."
             elif name == "shutdown_jarvis":
                 self.ui.write_log("SYS: Shutdown requested.")
                 self.speak("Goodbye, sir.")
@@ -724,6 +745,12 @@ class JarvisLive:
             with self._speaking_lock:
                 jarvis_speaking = self._is_speaking
             if not jarvis_speaking and not self.ui.muted:
+                import numpy as np
+                samples = indata.astype(np.float32)
+                rms = np.sqrt(np.mean(samples**2)) if len(samples) > 0 else 0.0
+                level = min(1.0, float(rms) / 8000.0)
+                self.ui.set_voice_level(level)
+
                 data = indata.tobytes()
                 loop.call_soon_threadsafe(
                     self.out_queue.put_nowait,
@@ -820,6 +847,13 @@ class JarvisLive:
             while True:
                 chunk = await self.audio_in_queue.get()
                 self.set_speaking(True)
+                
+                import numpy as np
+                samples = np.frombuffer(chunk, dtype=np.int16).astype(np.float32)
+                rms = np.sqrt(np.mean(samples**2)) if len(samples) > 0 else 0.0
+                level = min(1.0, float(rms) / 8000.0)
+                self.ui.set_voice_level(level)
+
                 await asyncio.to_thread(stream.write, chunk)
         except Exception as e:
             print(f"[JARVIS] ❌ Play: {e}")

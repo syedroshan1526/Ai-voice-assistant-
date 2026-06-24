@@ -66,17 +66,20 @@ computer_settings
   value: string (optional)
 
 computer_control
-  action: "type" | "click" | "hotkey" | "press" | "scroll" | "screenshot" | "screen_find" | "screen_click" (required)
+  action: "type" | "click" | "hotkey" | "press" | "scroll" | "screenshot" | "screen_find" | "screen_click" | "wait" | "focus_window" (required)
   text: string (for type)
   x, y: int (for click)
   keys: string (for hotkey, e.g. "ctrl+c")
   key: string (for press)
   direction: "up" | "down" (for scroll)
   description: string (for screen_find/screen_click)
+  seconds: float (for wait)
+  title: string (for focus_window)
 
 screen_process
   text: string (required) — what to analyze or ask about the screen
   angle: "screen" | "camera" (optional)
+  action: "screen" (optional)
 
 send_message
   receiver: string (required)
